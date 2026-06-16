@@ -567,7 +567,7 @@ const DEFAULTS = {
   flipClockSecs: 10,
   flipRelSecs: 5
 };
-const DEFAULT_TRAM_LINES = ["1", "2", "3", "5", "6", "7", "8", "9", "10", "11", "12"];
+const DEFAULT_TRAM_LINES = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"];
 const BASE = "https://www.zditm.szczecin.pl/api/v1";
 class StopNotFoundError extends Error {
   constructor(stop) {
@@ -1003,4 +1003,4 @@ window.customCards.push({
   preview: true,
   documentationURL: "https://github.com/GreatAnubis/zditm-departures-card"
 });
-console.info("%c ZDITM-DEPARTURES-CARD %c 0.1.1 ", "background:#1565c0;color:#fff", "background:#333;color:#fff");
+console.info("%c ZDITM-DEPARTURES-CARD %c 0.1.2 ", "background:#1565c0;color:#fff", "background:#333;color:#fff");

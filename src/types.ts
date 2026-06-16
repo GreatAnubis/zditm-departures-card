@@ -51,5 +51,6 @@ export const DEFAULTS = {
   flipRelSecs: 5,
 };
 
-// Szczecin tram lines (verify during manual testing; overridable via config.tram_lines)
-export const DEFAULT_TRAM_LINES = ['1', '2', '3', '5', '6', '7', '8', '9', '10', '11', '12'];
+// Szczecin tram lines — verified against ZDiTM /api/v1/lines vehicle_type (2026-06-16).
+// Overridable via config.tram_lines.
+export const DEFAULT_TRAM_LINES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'];

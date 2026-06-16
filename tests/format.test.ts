@@ -81,3 +81,65 @@ describe('selectDepartures', () => {
     expect(selectDepartures(many.slice(0, 2), 'list', 5).length).toBe(2);
   });
 });
+
+import { isLive, departureClock, departureRelative } from '../src/format';
+
+describe('isLive', () => {
+  it('true when time_real present, false otherwise', () => {
+    expect(isLive({ line_number: '75', direction: 'X', time_real: 3, time_scheduled: null })).toBe(true);
+    expect(isLive({ line_number: '75', direction: 'X', time_real: null, time_scheduled: '21:48' })).toBe(false);
+  });
+});
+
+describe('departureClock', () => {
+  const now = new Date(2026, 5, 16, 22, 15, 0);
+  it('live: now + minutes formatted HH:MM', () => {
+    expect(departureClock({ line_number: '75', direction: 'X', time_real: 16, time_scheduled: null }, now)).toBe('22:31');
+  });
+  it('live: zero-pads', () => {
+    expect(departureClock({ line_number: '75', direction: 'X', time_real: 50, time_scheduled: null }, new Date(2026, 5, 16, 9, 5, 0))).toBe('09:55');
+  });
+  it('scheduled: returns the timetable time as-is', () => {
+    expect(departureClock({ line_number: '75', direction: 'X', time_real: null, time_scheduled: '22:35' }, now)).toBe('22:35');
+  });
+});
+
+describe('departureRelative', () => {
+  const now = new Date(2026, 5, 16, 22, 15, 0);
+  it('live: "za X min"', () => {
+    expect(departureRelative({ line_number: '75', direction: 'X', time_real: 16, time_scheduled: null }, now)).toBe('za 16 min');
+  });
+  it('live zero: "teraz"', () => {
+    expect(departureRelative({ line_number: '75', direction: 'X', time_real: 0, time_scheduled: null }, now)).toBe('teraz');
+  });
+  it('scheduled: minutes until the timetable time', () => {
+    expect(departureRelative({ line_number: '75', direction: 'X', time_real: null, time_scheduled: '22:35' }, now)).toBe('za 20 min');
+  });
+  it('scheduled past midnight rolls to next day', () => {
+    const late = new Date(2026, 5, 16, 23, 58, 0);
+    expect(departureRelative({ line_number: '75', direction: 'X', time_real: null, time_scheduled: '00:58' }, late)).toBe('za 60 min');
+  });
+});
+
+import { categorize } from '../src/format';
+import type { LineInfo } from '../src/types';
+import { DEFAULT_TRAM_LINES as TRAMS } from '../src/types';
+
+const li = (over: Partial<LineInfo>): LineInfo =>
+  ({ number: '0', vehicle_type: 'bus', type: 'day', subtype: 'normal', ...over });
+
+describe('categorize (with API info)', () => {
+  it('tram by vehicle_type', () => { expect(categorize('4', li({ vehicle_type: 'tram' }), TRAMS)).toBe('tram'); });
+  it('night bus by type', () => { expect(categorize('521', li({ type: 'night' }), TRAMS)).toBe('night'); });
+  it('fast bus by subtype', () => { expect(categorize('A', li({ subtype: 'fast' }), TRAMS)).toBe('fast'); });
+  it('replacement bus by subtype', () => { expect(categorize('811', li({ subtype: 'replacement' }), TRAMS)).toBe('replacement'); });
+  it('normal bus otherwise', () => { expect(categorize('75', li({}), TRAMS)).toBe('bus'); });
+});
+
+describe('categorize (fallback, no API info)', () => {
+  it('tram from tramLines list', () => { expect(categorize('4', undefined, TRAMS)).toBe('tram'); });
+  it('letter line to fast', () => { expect(categorize('A', undefined, TRAMS)).toBe('fast'); });
+  it('5xx to night', () => { expect(categorize('521', undefined, TRAMS)).toBe('night'); });
+  it('8xx to replacement', () => { expect(categorize('811', undefined, TRAMS)).toBe('replacement'); });
+  it('plain number to bus', () => { expect(categorize('75', undefined, TRAMS)).toBe('bus'); });
+});

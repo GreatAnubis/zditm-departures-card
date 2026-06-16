@@ -92,3 +92,22 @@ describe('ZditmApi.fetchStops', () => {
     expect(await api.searchStops('nieistnieje')).toEqual([]);
   });
 });
+
+import type { LineInfo } from '../src/types';
+
+const lineList: LineInfo[] = [
+  { number: '3', vehicle_type: 'tram', type: 'day', subtype: 'normal' },
+  { number: 'A', vehicle_type: 'bus', type: 'day', subtype: 'fast' },
+];
+
+describe('ZditmApi.fetchLines', () => {
+  it('fetches and caches the line list (one network call)', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({ data: lineList }));
+    const api = new ZditmApi({ fetchFn });
+    const a = await api.fetchLines();
+    const b = await api.fetchLines();
+    expect(a.length).toBe(2);
+    expect(b).toBe(a);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+});

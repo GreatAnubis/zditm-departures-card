@@ -20,3 +20,16 @@ export function filterDepartures(departures: Departure[], filter: DepartureFilte
     return true;
   });
 }
+
+export interface FormattedTime {
+  live: boolean;
+  text: string;
+}
+
+export function formatDeparture(dep: Departure): FormattedTime {
+  if (dep.time_real !== null) {
+    return { live: true, text: dep.time_real === 0 ? 'teraz' : `za ${dep.time_real} min` };
+  }
+  if (dep.time_scheduled) return { live: false, text: dep.time_scheduled };
+  return { live: false, text: '—' };
+}

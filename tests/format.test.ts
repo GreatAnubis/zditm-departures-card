@@ -42,3 +42,24 @@ describe('filterDepartures', () => {
     expect(filterDepartures(deps, { lines: [75, 3], directions: ['zawadz'] }).map(d => d.line_number)).toEqual(['75']);
   });
 });
+
+import { formatDeparture } from '../src/format';
+
+describe('formatDeparture', () => {
+  it('formats live minutes with live=true', () => {
+    expect(formatDeparture({ line_number: '75', direction: 'X', time_real: 3, time_scheduled: null }))
+      .toEqual({ live: true, text: 'za 3 min' });
+  });
+  it('formats time_real 0 as "teraz"', () => {
+    expect(formatDeparture({ line_number: '75', direction: 'X', time_real: 0, time_scheduled: null }))
+      .toEqual({ live: true, text: 'teraz' });
+  });
+  it('formats scheduled time with live=false', () => {
+    expect(formatDeparture({ line_number: '75', direction: 'X', time_real: null, time_scheduled: '21:48' }))
+      .toEqual({ live: false, text: '21:48' });
+  });
+  it('falls back to "—" when both null', () => {
+    expect(formatDeparture({ line_number: '75', direction: 'X', time_real: null, time_scheduled: null }))
+      .toEqual({ live: false, text: '—' });
+  });
+});

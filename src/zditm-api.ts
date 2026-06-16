@@ -80,3 +80,5 @@ export class ZditmApi {
     return all.filter(s => s.name.toLowerCase().includes(q)).slice(0, limit);
   }
 }
+
+export const zditmApi = new ZditmApi();

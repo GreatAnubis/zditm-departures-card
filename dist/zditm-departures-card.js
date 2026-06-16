@@ -949,6 +949,6 @@ window.customCards.push({
   name: "ZDiTM Departures",
   description: "Tablica odjazdów ZDiTM Szczecin dla wybranego przystanku.",
   preview: true,
-  documentationURL: "https://github.com/anubis/zditm-departures-card"
+  documentationURL: "https://github.com/GreatAnubis/zditm-departures-card"
 });
 console.info("%c ZDITM-DEPARTURES-CARD %c 0.1.0 ", "background:#1565c0;color:#fff", "background:#333;color:#fff");

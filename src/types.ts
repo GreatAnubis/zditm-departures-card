@@ -22,6 +22,15 @@ export interface Stop {
   longitude: number;
 }
 
+export interface LineInfo {
+  number: string;
+  vehicle_type: string;   // 'tram' | 'bus'
+  type: string;           // 'day' | 'night'
+  subtype: string;        // 'normal' | 'fast' | 'replacement'
+}
+
+export type LineCategory = 'tram' | 'bus' | 'fast' | 'night' | 'replacement';
+
 // Card configuration
 export type CardMode = 'list' | 'compact';
 

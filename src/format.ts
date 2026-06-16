@@ -1,9 +1,30 @@
-import type { Departure, CardMode } from './types';
+import type { Departure, CardMode, LineInfo, LineCategory } from './types';
 
 export type LineKind = 'tram' | 'bus';
 
 export function classifyLine(line: string, tramLines: string[]): LineKind {
   return tramLines.map(String).includes(String(line)) ? 'tram' : 'bus';
+}
+
+export function categorize(
+  lineNumber: string,
+  info: LineInfo | undefined,
+  tramLines: string[],
+): LineCategory {
+  if (info) {
+    if (info.vehicle_type === 'tram') return 'tram';
+    if (info.type === 'night') return 'night';
+    if (info.subtype === 'fast') return 'fast';
+    if (info.subtype === 'replacement') return 'replacement';
+    return 'bus';
+  }
+  // Fallback heuristic before /lines has loaded
+  const s = String(lineNumber);
+  if (tramLines.map(String).includes(s)) return 'tram';
+  if (/^[A-Za-z]/.test(s)) return 'fast';
+  if (/^5\d{2}$/.test(s)) return 'night';
+  if (/^8\d{2}$/.test(s)) return 'replacement';
+  return 'bus';
 }
 
 export interface DepartureFilter {

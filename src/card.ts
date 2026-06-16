@@ -1,9 +1,9 @@
 import { LitElement, html, css, nothing, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import type { CardConfig, DisplayResponse, Departure } from './types';
+import type { CardConfig, DisplayResponse, Departure, LineInfo } from './types';
 import { DEFAULTS, DEFAULT_TRAM_LINES } from './types';
 import { zditmApi } from './zditm-api';
-import { classifyLine, filterDepartures, selectDepartures, isLive, departureClock, departureRelative } from './format';
+import { filterDepartures, selectDepartures, isLive, departureClock, departureRelative, categorize } from './format';
 
 export class ZditmDeparturesCard extends LitElement {
   @property({ attribute: false }) public hass?: unknown;
@@ -12,6 +12,7 @@ export class ZditmDeparturesCard extends LitElement {
   @state() private error?: string;
   @state() private stale = false;
   @state() private phase: 'clock' | 'relative' = 'clock';
+  @state() private lineIndex?: Map<string, LineInfo>;
   private timer?: number;
   private flipTimer?: number;
 
@@ -38,6 +39,7 @@ export class ZditmDeparturesCard extends LitElement {
   private restart(): void {
     this.stop();
     if (!this.config?.stop) return;
+    void this.loadLines();
     const seconds = Math.max(DEFAULTS.minRefresh, this.config.refresh ?? DEFAULTS.refresh);
     void this.poll();
     this.timer = window.setInterval(() => void this.poll(), seconds * 1000);
@@ -46,6 +48,14 @@ export class ZditmDeparturesCard extends LitElement {
   private stop(): void {
     if (this.timer) { clearInterval(this.timer); this.timer = undefined; }
     this.stopFlip();
+  }
+
+  private async loadLines(): Promise<void> {
+    if (this.lineIndex) return;
+    try {
+      const lines = await zditmApi.fetchLines();
+      this.lineIndex = new Map(lines.map(l => [String(l.number), l]));
+    } catch { /* fall back to heuristic classification */ }
   }
 
   private startFlip(): void {
@@ -109,7 +119,8 @@ export class ZditmDeparturesCard extends LitElement {
   }
 
   private badge(line: string, tramLines: string[]): TemplateResult {
-    return html`<span class="badge ${classifyLine(line, tramLines)}">${line}</span>`;
+    const cat = categorize(line, this.lineIndex?.get(String(line)), tramLines);
+    return html`<span class="badge ${cat}">${line}</span>`;
   }
 
   private renderList(deps: Departure[], tramLines: string[], now: Date): TemplateResult {
@@ -146,8 +157,11 @@ export class ZditmDeparturesCard extends LitElement {
     .row { display:flex; align-items:center; gap:12px; padding:7px 0; border-top:1px solid var(--divider-color); }
     .row:first-child { border-top:none; }
     .badge { min-width:34px; padding:2px 8px; border-radius:7px; color:#fff; font-weight:700; text-align:center; font-size:.9rem; }
-    .badge.tram { background:#c62828; }
+    .badge.tram { background:#2e7d32; }
     .badge.bus { background:#1565c0; }
+    .badge.fast { background:#c62828; }
+    .badge.night { background:#37474f; }
+    .badge.replacement { background:#f9a825; color:#1b1b1b; }
     .dir { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .when { font-weight:600; text-align:right; white-space:nowrap; }
     .when.live { color: var(--success-color, #43a047); }

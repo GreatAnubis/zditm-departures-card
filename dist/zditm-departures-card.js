@@ -637,6 +637,20 @@ class ZditmApi {
     });
     return this.stopsInflight;
   }
+  async fetchLines() {
+    if (this.linesCache) return this.linesCache;
+    if (this.linesInflight) return this.linesInflight;
+    this.linesInflight = (async () => {
+      const res = await this.fetchFn(`${this.base}/lines`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = await res.clone().json();
+      this.linesCache = body.data;
+      return body.data;
+    })().finally(() => {
+      this.linesInflight = void 0;
+    });
+    return this.linesInflight;
+  }
   async searchStops(query, limit = 25) {
     const q = query.trim().toLowerCase();
     if (!q) return [];
@@ -645,8 +659,20 @@ class ZditmApi {
   }
 }
 const zditmApi = new ZditmApi();
-function classifyLine(line, tramLines) {
-  return tramLines.map(String).includes(String(line)) ? "tram" : "bus";
+function categorize(lineNumber, info, tramLines) {
+  if (info) {
+    if (info.vehicle_type === "tram") return "tram";
+    if (info.type === "night") return "night";
+    if (info.subtype === "fast") return "fast";
+    if (info.subtype === "replacement") return "replacement";
+    return "bus";
+  }
+  const s2 = String(lineNumber);
+  if (tramLines.map(String).includes(s2)) return "tram";
+  if (/^[A-Za-z]/.test(s2)) return "fast";
+  if (/^5\d{2}$/.test(s2)) return "night";
+  if (/^8\d{2}$/.test(s2)) return "replacement";
+  return "bus";
 }
 function filterDepartures(departures, filter) {
   const lines = filter.lines?.map(String);
@@ -730,6 +756,7 @@ const _ZditmDeparturesCard = class _ZditmDeparturesCard extends i {
   restart() {
     this.stop();
     if (!this.config?.stop) return;
+    void this.loadLines();
     const seconds = Math.max(DEFAULTS.minRefresh, this.config.refresh ?? DEFAULTS.refresh);
     void this.poll();
     this.timer = window.setInterval(() => void this.poll(), seconds * 1e3);
@@ -741,6 +768,14 @@ const _ZditmDeparturesCard = class _ZditmDeparturesCard extends i {
       this.timer = void 0;
     }
     this.stopFlip();
+  }
+  async loadLines() {
+    if (this.lineIndex) return;
+    try {
+      const lines = await zditmApi.fetchLines();
+      this.lineIndex = new Map(lines.map((l2) => [String(l2.number), l2]));
+    } catch {
+    }
   }
   startFlip() {
     this.stopFlip();
@@ -799,7 +834,8 @@ const _ZditmDeparturesCard = class _ZditmDeparturesCard extends i {
       </ha-card>`;
   }
   badge(line, tramLines) {
-    return b`<span class="badge ${classifyLine(line, tramLines)}">${line}</span>`;
+    const cat = categorize(line, this.lineIndex?.get(String(line)), tramLines);
+    return b`<span class="badge ${cat}">${line}</span>`;
   }
   renderList(deps, tramLines, now) {
     return b`<div class="list">
@@ -834,8 +870,11 @@ _ZditmDeparturesCard.styles = i$3`
     .row { display:flex; align-items:center; gap:12px; padding:7px 0; border-top:1px solid var(--divider-color); }
     .row:first-child { border-top:none; }
     .badge { min-width:34px; padding:2px 8px; border-radius:7px; color:#fff; font-weight:700; text-align:center; font-size:.9rem; }
-    .badge.tram { background:#c62828; }
+    .badge.tram { background:#2e7d32; }
     .badge.bus { background:#1565c0; }
+    .badge.fast { background:#c62828; }
+    .badge.night { background:#37474f; }
+    .badge.replacement { background:#f9a825; color:#1b1b1b; }
     .dir { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .when { font-weight:600; text-align:right; white-space:nowrap; }
     .when.live { color: var(--success-color, #43a047); }
@@ -865,6 +904,9 @@ __decorateClass$1([
 __decorateClass$1([
   r()
 ], ZditmDeparturesCard.prototype, "phase");
+__decorateClass$1([
+  r()
+], ZditmDeparturesCard.prototype, "lineIndex");
 var __defProp = Object.defineProperty;
 var __decorateClass = (decorators, target, key, kind) => {
   var result = void 0;
@@ -1003,4 +1045,4 @@ window.customCards.push({
   preview: true,
   documentationURL: "https://github.com/GreatAnubis/zditm-departures-card"
 });
-console.info("%c ZDITM-DEPARTURES-CARD %c 0.1.2 ", "background:#1565c0;color:#fff", "background:#333;color:#fff");
+console.info("%c ZDITM-DEPARTURES-CARD %c 0.1.3 ", "background:#1565c0;color:#fff", "background:#333;color:#fff");

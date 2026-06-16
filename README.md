@@ -36,4 +36,14 @@ count: 3             # ile odjazdów (tryb list)
 | `flip_clock_secs` | `10` | Ile sekund pokazywać godzinę przy przełączaniu |
 | `flip_rel_secs` | `5` | Ile sekund pokazywać „za X min" przy przełączaniu |
 
+## Kolory linii
+
+Kolor plakietki wynika z typu linii pobranego z API ZDiTM (`/lines`):
+
+- 🟢 tramwaj (1–11)
+- 🔵 autobus zwykły
+- 🔴 pośpieszny (A, B, C)
+- ⬛ nocny (5xx)
+- 🟠 zastępczy (8xx)
+
 Czas każdego odjazdu przełącza się automatycznie między godziną a „za ile minut".

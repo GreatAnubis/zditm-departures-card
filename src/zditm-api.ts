@@ -1,4 +1,4 @@
-import type { DisplayResponse, Stop } from './types';
+import type { DisplayResponse, Stop, LineInfo } from './types';
 
 const BASE = 'https://www.zditm.szczecin.pl/api/v1';
 
@@ -71,6 +71,22 @@ export class ZditmApi {
       return body.data;
     })().finally(() => { this.stopsInflight = undefined; });
     return this.stopsInflight;
+  }
+
+  private linesCache?: LineInfo[];
+  private linesInflight?: Promise<LineInfo[]>;
+
+  async fetchLines(): Promise<LineInfo[]> {
+    if (this.linesCache) return this.linesCache;
+    if (this.linesInflight) return this.linesInflight;
+    this.linesInflight = (async () => {
+      const res = await this.fetchFn(`${this.base}/lines`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = (await res.clone().json()) as { data: LineInfo[] };
+      this.linesCache = body.data;
+      return body.data;
+    })().finally(() => { this.linesInflight = undefined; });
+    return this.linesInflight;
   }
 
   async searchStops(query: string, limit = 25): Promise<Stop[]> {

@@ -33,3 +33,37 @@ describe('ZditmApi.fetchDisplay', () => {
     await expect(api.fetchDisplay('10111')).rejects.toBeInstanceOf(RateLimitError);
   });
 });
+
+describe('ZditmApi caching & backoff', () => {
+  it('serves cached data within TTL (one network call for two reads)', async () => {
+    let t = 1000;
+    const fetchFn = vi.fn().mockResolvedValue(jsonResponse(sample));
+    const api = new ZditmApi({ fetchFn, now: () => t });
+    await api.fetchDisplay('10111', 15000);
+    t = 5000; // within 15s TTL
+    await api.fetchDisplay('10111', 15000);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-fetches after TTL expires', async () => {
+    let t = 1000;
+    const fetchFn = vi.fn().mockResolvedValue(jsonResponse(sample));
+    const api = new ZditmApi({ fetchFn, now: () => t });
+    await api.fetchDisplay('10111', 15000);
+    t = 20000; // past TTL
+    await api.fetchDisplay('10111', 15000);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('after 429, serves stale cache during backoff window', async () => {
+    let t = 1000;
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(sample))
+      .mockResolvedValueOnce(jsonResponse({}, 429, { 'Retry-After': '5' }));
+    const api = new ZditmApi({ fetchFn, now: () => t });
+    await api.fetchDisplay('10111', 1);
+    t = 100;
+    const res = await api.fetchDisplay('10111', 1);
+    expect(res.stop_name).toBe('Turzyn Dworzec');
+  });
+});

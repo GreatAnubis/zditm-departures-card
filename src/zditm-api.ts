@@ -18,16 +18,42 @@ export interface ApiOptions {
 export class ZditmApi {
   constructor(private opts: ApiOptions = {}) {}
   private get fetchFn() { return this.opts.fetchFn ?? fetch.bind(globalThis); }
+  private get now() { return this.opts.now ?? Date.now; }
   private get base() { return this.opts.baseUrl ?? BASE; }
 
-  async fetchDisplay(stop: string): Promise<DisplayResponse> {
+  private displayCache = new Map<string, { data: DisplayResponse; ts: number }>();
+  private inflight = new Map<string, Promise<DisplayResponse>>();
+  private backoffUntil = 0;
+
+  async fetchDisplay(stop: string, ttlMs = 15000): Promise<DisplayResponse> {
+    const t = this.now();
+    const cached = this.displayCache.get(stop);
+    if (cached && t - cached.ts < ttlMs) return cached.data;
+    if (t < this.backoffUntil && cached) return cached.data;
+
+    const existing = this.inflight.get(stop);
+    if (existing) return existing;
+
+    const p = this.doFetchDisplay(stop, cached?.data).finally(() => this.inflight.delete(stop));
+    this.inflight.set(stop, p);
+    return p;
+  }
+
+  private async doFetchDisplay(stop: string, stale?: DisplayResponse): Promise<DisplayResponse> {
     const res = await this.fetchFn(`${this.base}/displays/${stop}`);
     if (res.status === 404) throw new StopNotFoundError(stop);
     if (res.status === 429) {
       const retry = Number(res.headers.get('Retry-After') ?? '30');
+      this.backoffUntil = this.now() + retry * 1000;
+      if (stale) return stale;
       throw new RateLimitError(retry * 1000);
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as DisplayResponse;
+    // Clone before reading: a Response body is single-use, and reusing the same
+    // Response instance (e.g. a shared test mock) would otherwise throw on a
+    // second read. Cloning keeps the original body intact for later reads.
+    const data = (await res.clone().json()) as DisplayResponse;
+    this.displayCache.set(stop, { data, ts: this.now() });
+    return data;
   }
 }

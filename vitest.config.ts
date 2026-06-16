@@ -18,5 +18,12 @@ if (typeof globalThis.crypto === 'undefined') {
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  test: { environment: 'jsdom', include: ['tests/**/*.test.ts'] },
+  test: {
+    environment: 'jsdom',
+    include: ['tests/**/*.test.ts'],
+    // Polyfill the Fetch API (Response/Headers/fetch) for Node 16, which predates
+    // global fetch (added in Node 18). Tests construct `new Response(...)` and the
+    // API client uses these globals. Runs inside the test runtime via setupFiles.
+    setupFiles: ['./tests/setup.ts'],
+  },
 });

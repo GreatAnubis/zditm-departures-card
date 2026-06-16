@@ -56,4 +56,27 @@ export class ZditmApi {
     this.displayCache.set(stop, { data, ts: this.now() });
     return data;
   }
+
+  private stopsCache?: Stop[];
+  private stopsInflight?: Promise<Stop[]>;
+
+  async fetchStops(): Promise<Stop[]> {
+    if (this.stopsCache) return this.stopsCache;
+    if (this.stopsInflight) return this.stopsInflight;
+    this.stopsInflight = (async () => {
+      const res = await this.fetchFn(`${this.base}/stops`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = (await res.clone().json()) as { data: Stop[] };
+      this.stopsCache = body.data;
+      return body.data;
+    })().finally(() => { this.stopsInflight = undefined; });
+    return this.stopsInflight;
+  }
+
+  async searchStops(query: string, limit = 25): Promise<Stop[]> {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const all = await this.fetchStops();
+    return all.filter(s => s.name.toLowerCase().includes(q)).slice(0, limit);
+  }
 }

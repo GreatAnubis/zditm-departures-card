@@ -67,3 +67,28 @@ describe('ZditmApi caching & backoff', () => {
     expect(res.stop_name).toBe('Turzyn Dworzec');
   });
 });
+
+const stops: Stop[] = [
+  { id: 1, number: '10111', name: 'Turzyn Dworzec', latitude: 53.42, longitude: 14.52 },
+  { id: 2, number: '10112', name: 'Turzyn Dworzec', latitude: 53.42, longitude: 14.52 },
+];
+
+describe('ZditmApi.fetchStops', () => {
+  it('fetches and caches the stop list (one network call)', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({ data: stops }));
+    const api = new ZditmApi({ fetchFn });
+    const a = await api.fetchStops();
+    const b = await api.fetchStops();
+    expect(a.length).toBe(2);
+    expect(b).toBe(a);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('searchStops matches name case-insensitively', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({ data: stops }));
+    const api = new ZditmApi({ fetchFn });
+    const results = await api.searchStops('turzyn');
+    expect(results.map(s => s.number)).toEqual(['10111', '10112']);
+    expect(await api.searchStops('nieistnieje')).toEqual([]);
+  });
+});

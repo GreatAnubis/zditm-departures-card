@@ -6,7 +6,7 @@ export class StopNotFoundError extends Error {
   constructor(stop: string) { super(`Nie znaleziono przystanku ${stop}`); this.name = 'StopNotFoundError'; }
 }
 export class RateLimitError extends Error {
-  constructor(public retryAfterMs: number) { super('Rate limited'); this.name = 'RateLimitError'; }
+  constructor(public retryAfterMs: number) { super('Przekroczono limit zapytań — spróbuj za chwilę'); this.name = 'RateLimitError'; }
 }
 
 export interface ApiOptions {

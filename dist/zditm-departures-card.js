@@ -575,7 +575,7 @@ class StopNotFoundError extends Error {
 }
 class RateLimitError extends Error {
   constructor(retryAfterMs) {
-    super("Rate limited");
+    super("Przekroczono limit zapytań — spróbuj za chwilę");
     this.retryAfterMs = retryAfterMs;
     this.name = "RateLimitError";
   }
@@ -717,7 +717,8 @@ const _ZditmDeparturesCard = class _ZditmDeparturesCard extends i {
   }
   async poll() {
     try {
-      this.data = await zditmApi.fetchDisplay(this.config.stop);
+      const ttl = Math.max(DEFAULTS.minRefresh, this.config.refresh ?? DEFAULTS.refresh) * 1e3;
+      this.data = await zditmApi.fetchDisplay(this.config.stop, ttl);
       this.error = void 0;
       this.stale = false;
     } catch (e2) {
@@ -864,6 +865,11 @@ const _ZditmDeparturesCardEditor = class _ZditmDeparturesCardEditor extends i {
     const lines = raw.split(",").map((s2) => s2.trim()).filter(Boolean);
     this.emit({ lines: lines.length ? lines : void 0 });
   }
+  onDirections(e2) {
+    const raw = e2.target.value;
+    const dirs = raw.split(",").map((s2) => s2.trim()).filter(Boolean);
+    this.emit({ directions: dirs.length ? dirs : void 0 });
+  }
   render() {
     if (!this.config) return b``;
     const directions = this.preview ? [...new Set(this.preview.departures.map((d2) => `${d2.line_number} → ${d2.direction}`))].slice(0, 5) : [];
@@ -888,6 +894,10 @@ const _ZditmDeparturesCardEditor = class _ZditmDeparturesCardEditor extends i {
         <input class="ctrl" .value=${this.linesValue()} placeholder="np. 75, 521"
                @change=${(e2) => this.onLines(e2)} />
 
+        <label>Kierunek (opcjonalnie; fragment nazwy)</label>
+        <input class="ctrl" .value=${(this.config.directions ?? []).join(", ")} placeholder="np. Zawadzkiego"
+               @change=${(e2) => this.onDirections(e2)} />
+
         <label>Tryb</label>
         <select class="ctrl" @change=${(e2) => this.emit({ mode: e2.target.value })}>
           <option value="list" ?selected=${(this.config.mode ?? "list") === "list"}>Lista odjazdów</option>
@@ -896,7 +906,10 @@ const _ZditmDeparturesCardEditor = class _ZditmDeparturesCardEditor extends i {
 
         <label>Liczba odjazdów (tryb lista)</label>
         <input class="ctrl" type="number" min="1" .value=${String(this.config.count ?? 3)}
-               @change=${(e2) => this.emit({ count: Number(e2.target.value) })} />
+               @change=${(e2) => {
+      const n3 = Number(e2.target.value);
+      this.emit({ count: Number.isFinite(n3) && n3 > 0 ? n3 : void 0 });
+    }} />
       </div>`;
   }
 };

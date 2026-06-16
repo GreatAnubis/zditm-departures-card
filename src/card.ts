@@ -46,7 +46,8 @@ export class ZditmDeparturesCard extends LitElement {
 
   private async poll(): Promise<void> {
     try {
-      this.data = await zditmApi.fetchDisplay(this.config.stop);
+      const ttl = Math.max(DEFAULTS.minRefresh, this.config.refresh ?? DEFAULTS.refresh) * 1000;
+      this.data = await zditmApi.fetchDisplay(this.config.stop, ttl);
       this.error = undefined;
       this.stale = false;
     } catch (e) {

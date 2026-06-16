@@ -46,6 +46,11 @@ export class ZditmDeparturesCardEditor extends LitElement {
     const lines = raw.split(',').map(s => s.trim()).filter(Boolean);
     this.emit({ lines: lines.length ? lines : undefined });
   }
+  private onDirections(e: Event): void {
+    const raw = (e.target as HTMLInputElement).value;
+    const dirs = raw.split(',').map(s => s.trim()).filter(Boolean);
+    this.emit({ directions: dirs.length ? dirs : undefined });
+  }
 
   render(): TemplateResult {
     if (!this.config) return html``;
@@ -74,6 +79,10 @@ export class ZditmDeparturesCardEditor extends LitElement {
         <input class="ctrl" .value=${this.linesValue()} placeholder="np. 75, 521"
                @change=${(e: Event) => this.onLines(e)} />
 
+        <label>Kierunek (opcjonalnie; fragment nazwy)</label>
+        <input class="ctrl" .value=${(this.config.directions ?? []).join(', ')} placeholder="np. Zawadzkiego"
+               @change=${(e: Event) => this.onDirections(e)} />
+
         <label>Tryb</label>
         <select class="ctrl" @change=${(e: Event) => this.emit({ mode: (e.target as HTMLSelectElement).value as CardConfig['mode'] })}>
           <option value="list" ?selected=${(this.config.mode ?? 'list') === 'list'}>Lista odjazdów</option>
@@ -82,7 +91,7 @@ export class ZditmDeparturesCardEditor extends LitElement {
 
         <label>Liczba odjazdów (tryb lista)</label>
         <input class="ctrl" type="number" min="1" .value=${String(this.config.count ?? 3)}
-               @change=${(e: Event) => this.emit({ count: Number((e.target as HTMLInputElement).value) })} />
+               @change=${(e: Event) => { const n = Number((e.target as HTMLInputElement).value); this.emit({ count: Number.isFinite(n) && n > 0 ? n : undefined }); }} />
       </div>`;
   }
 

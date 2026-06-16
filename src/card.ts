@@ -3,7 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import type { CardConfig, DisplayResponse, Departure } from './types';
 import { DEFAULTS, DEFAULT_TRAM_LINES } from './types';
 import { zditmApi } from './zditm-api';
-import { classifyLine, filterDepartures, formatDeparture, selectDepartures } from './format';
+import { classifyLine, filterDepartures, selectDepartures, isLive, departureClock, departureRelative } from './format';
 
 export class ZditmDeparturesCard extends LitElement {
   @property({ attribute: false }) public hass?: unknown;
@@ -11,7 +11,9 @@ export class ZditmDeparturesCard extends LitElement {
   @state() private data?: DisplayResponse;
   @state() private error?: string;
   @state() private stale = false;
+  @state() private phase: 'clock' | 'relative' = 'clock';
   private timer?: number;
+  private flipTimer?: number;
 
   static getConfigElement() {
     return document.createElement('zditm-departures-card-editor');
@@ -39,9 +41,29 @@ export class ZditmDeparturesCard extends LitElement {
     const seconds = Math.max(DEFAULTS.minRefresh, this.config.refresh ?? DEFAULTS.refresh);
     void this.poll();
     this.timer = window.setInterval(() => void this.poll(), seconds * 1000);
+    this.startFlip();
   }
   private stop(): void {
     if (this.timer) { clearInterval(this.timer); this.timer = undefined; }
+    this.stopFlip();
+  }
+
+  private startFlip(): void {
+    this.stopFlip();
+    this.phase = 'clock';
+    const tick = () => {
+      const secs = this.phase === 'clock'
+        ? (this.config.flip_clock_secs ?? DEFAULTS.flipClockSecs)
+        : (this.config.flip_rel_secs ?? DEFAULTS.flipRelSecs);
+      this.flipTimer = window.setTimeout(() => {
+        this.phase = this.phase === 'clock' ? 'relative' : 'clock';
+        tick();
+      }, Math.max(1, secs) * 1000);
+    };
+    tick();
+  }
+  private stopFlip(): void {
+    if (this.flipTimer) { clearTimeout(this.flipTimer); this.flipTimer = undefined; }
   }
 
   private async poll(): Promise<void> {
@@ -56,6 +78,10 @@ export class ZditmDeparturesCard extends LitElement {
     }
   }
 
+  private timeText(d: Departure, now: Date): string {
+    return this.phase === 'clock' ? departureClock(d, now) : departureRelative(d, now);
+  }
+
   render(): TemplateResult {
     if (this.error) return html`<ha-card><div class="msg error">${this.error}</div></ha-card>`;
     if (!this.data) return html`<ha-card><div class="msg">Ładowanie…</div></ha-card>`;
@@ -67,6 +93,7 @@ export class ZditmDeparturesCard extends LitElement {
     const shown = selectDepartures(filtered, mode, cfg.count ?? DEFAULTS.count);
     const title = cfg.title ?? this.data.stop_name;
     const showHeader = cfg.show_header ?? DEFAULTS.show_header;
+    const now = new Date();
 
     return html`
       <ha-card>
@@ -77,7 +104,7 @@ export class ZditmDeparturesCard extends LitElement {
         ${this.data.message ? html`<div class="banner">${this.data.message}</div>` : nothing}
         ${shown.length === 0
           ? html`<div class="msg">${(cfg.lines?.length) ? 'Brak odjazdów dla wybranych linii' : 'Brak odjazdów'}</div>`
-          : (mode === 'compact' ? this.renderCompact(shown, tramLines) : this.renderList(shown, tramLines))}
+          : (mode === 'compact' ? this.renderCompact(shown, tramLines, now) : this.renderList(shown, tramLines, now))}
       </ha-card>`;
   }
 
@@ -85,26 +112,26 @@ export class ZditmDeparturesCard extends LitElement {
     return html`<span class="badge ${classifyLine(line, tramLines)}">${line}</span>`;
   }
 
-  private renderList(deps: Departure[], tramLines: string[]): TemplateResult {
+  private renderList(deps: Departure[], tramLines: string[], now: Date): TemplateResult {
     return html`<div class="list">
       ${deps.map(d => {
-        const f = formatDeparture(d);
+        const live = isLive(d);
         return html`<div class="row">
           ${this.badge(d.line_number, tramLines)}
           <span class="dir">${d.direction}</span>
-          <span class="when ${f.live ? 'live' : 'sched'}">${f.live ? html`<span class="dot"></span>` : nothing}${f.text}</span>
+          <span class="when ${live ? 'live' : 'sched'}">${live ? html`<span class="dot"></span>` : nothing}${this.timeText(d, now)}</span>
         </div>`;
       })}
     </div>`;
   }
 
-  private renderCompact(deps: Departure[], tramLines: string[]): TemplateResult {
+  private renderCompact(deps: Departure[], tramLines: string[], now: Date): TemplateResult {
     const [first, ...rest] = deps;
-    const f = formatDeparture(first);
+    const live = isLive(first);
     return html`<div class="compact">
       <div class="chead">${this.badge(first.line_number, tramLines)}<span class="dir">${first.direction}</span></div>
-      <div class="big ${f.live ? 'live' : 'sched'}">${f.live ? html`<span class="dot"></span>` : nothing}${f.text}</div>
-      ${rest.length ? html`<div class="sub">potem: ${rest.map(d => html`<strong>${formatDeparture(d).text}</strong>`)}</div>` : nothing}
+      <div class="big ${live ? 'live' : 'sched'}">${live ? html`<span class="dot"></span>` : nothing}${this.timeText(first, now)}</div>
+      ${rest.length ? html`<div class="sub">potem: ${rest.map(d => html`<strong>${this.timeText(d, now)}</strong>`)}</div>` : nothing}
     </div>`;
   }
 

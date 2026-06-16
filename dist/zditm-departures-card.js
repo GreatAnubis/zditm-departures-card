@@ -563,7 +563,9 @@ const DEFAULTS = {
   count: 3,
   refresh: 30,
   minRefresh: 20,
-  show_header: true
+  show_header: true,
+  flipClockSecs: 10,
+  flipRelSecs: 5
 };
 const DEFAULT_TRAM_LINES = ["1", "2", "3", "5", "6", "7", "8", "9", "10", "11", "12"];
 const BASE = "https://www.zditm.szczecin.pl/api/v1";
@@ -655,16 +657,38 @@ function filterDepartures(departures, filter) {
     return true;
   });
 }
-function formatDeparture(dep) {
-  if (dep.time_real !== null) {
-    return { live: true, text: dep.time_real === 0 ? "teraz" : `za ${dep.time_real} min` };
-  }
-  if (dep.time_scheduled) return { live: false, text: dep.time_scheduled };
-  return { live: false, text: "—" };
-}
 function selectDepartures(departures, mode, count) {
   const limit = mode === "compact" ? 3 : Math.max(1, count);
   return departures.slice(0, limit);
+}
+function isLive(dep) {
+  return dep.time_real !== null;
+}
+function pad2(n3) {
+  return n3 < 10 ? "0" + n3 : String(n3);
+}
+function departureClock(dep, now) {
+  if (dep.time_real !== null) {
+    const d2 = new Date(now.getTime() + dep.time_real * 6e4);
+    return `${pad2(d2.getHours())}:${pad2(d2.getMinutes())}`;
+  }
+  if (dep.time_scheduled) return dep.time_scheduled;
+  return "—";
+}
+function departureRelative(dep, now) {
+  if (dep.time_real !== null) {
+    return dep.time_real === 0 ? "teraz" : `za ${dep.time_real} min`;
+  }
+  if (dep.time_scheduled) {
+    const m2 = /^(\d{1,2}):(\d{2})$/.exec(dep.time_scheduled.trim());
+    if (!m2) return dep.time_scheduled;
+    const target = new Date(now);
+    target.setHours(Number(m2[1]), Number(m2[2]), 0, 0);
+    if (target.getTime() < now.getTime() - 6e4) target.setDate(target.getDate() + 1);
+    const diff = Math.round((target.getTime() - now.getTime()) / 6e4);
+    return diff <= 0 ? "teraz" : `za ${diff} min`;
+  }
+  return "—";
 }
 var __defProp$1 = Object.defineProperty;
 var __decorateClass$1 = (decorators, target, key, kind) => {
@@ -679,6 +703,7 @@ const _ZditmDeparturesCard = class _ZditmDeparturesCard extends i {
   constructor() {
     super(...arguments);
     this.stale = false;
+    this.phase = "clock";
   }
   static getConfigElement() {
     return document.createElement("zditm-departures-card-editor");
@@ -708,11 +733,31 @@ const _ZditmDeparturesCard = class _ZditmDeparturesCard extends i {
     const seconds = Math.max(DEFAULTS.minRefresh, this.config.refresh ?? DEFAULTS.refresh);
     void this.poll();
     this.timer = window.setInterval(() => void this.poll(), seconds * 1e3);
+    this.startFlip();
   }
   stop() {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = void 0;
+    }
+    this.stopFlip();
+  }
+  startFlip() {
+    this.stopFlip();
+    this.phase = "clock";
+    const tick = () => {
+      const secs = this.phase === "clock" ? this.config.flip_clock_secs ?? DEFAULTS.flipClockSecs : this.config.flip_rel_secs ?? DEFAULTS.flipRelSecs;
+      this.flipTimer = window.setTimeout(() => {
+        this.phase = this.phase === "clock" ? "relative" : "clock";
+        tick();
+      }, Math.max(1, secs) * 1e3);
+    };
+    tick();
+  }
+  stopFlip() {
+    if (this.flipTimer) {
+      clearTimeout(this.flipTimer);
+      this.flipTimer = void 0;
     }
   }
   async poll() {
@@ -729,6 +774,9 @@ const _ZditmDeparturesCard = class _ZditmDeparturesCard extends i {
       }
     }
   }
+  timeText(d2, now) {
+    return this.phase === "clock" ? departureClock(d2, now) : departureRelative(d2, now);
+  }
   render() {
     if (this.error) return b`<ha-card><div class="msg error">${this.error}</div></ha-card>`;
     if (!this.data) return b`<ha-card><div class="msg">Ładowanie…</div></ha-card>`;
@@ -739,6 +787,7 @@ const _ZditmDeparturesCard = class _ZditmDeparturesCard extends i {
     const shown = selectDepartures(filtered, mode, cfg.count ?? DEFAULTS.count);
     const title = cfg.title ?? this.data.stop_name;
     const showHeader = cfg.show_header ?? DEFAULTS.show_header;
+    const now = /* @__PURE__ */ new Date();
     return b`
       <ha-card>
         ${showHeader ? b`<div class="head">
@@ -746,31 +795,31 @@ const _ZditmDeparturesCard = class _ZditmDeparturesCard extends i {
           ${this.stale ? b`<span class="stale" title="Dane nieaktualne">⚠ nieaktualne</span>` : A}
         </div>` : A}
         ${this.data.message ? b`<div class="banner">${this.data.message}</div>` : A}
-        ${shown.length === 0 ? b`<div class="msg">${cfg.lines?.length ? "Brak odjazdów dla wybranych linii" : "Brak odjazdów"}</div>` : mode === "compact" ? this.renderCompact(shown, tramLines) : this.renderList(shown, tramLines)}
+        ${shown.length === 0 ? b`<div class="msg">${cfg.lines?.length ? "Brak odjazdów dla wybranych linii" : "Brak odjazdów"}</div>` : mode === "compact" ? this.renderCompact(shown, tramLines, now) : this.renderList(shown, tramLines, now)}
       </ha-card>`;
   }
   badge(line, tramLines) {
     return b`<span class="badge ${classifyLine(line, tramLines)}">${line}</span>`;
   }
-  renderList(deps, tramLines) {
+  renderList(deps, tramLines, now) {
     return b`<div class="list">
       ${deps.map((d2) => {
-      const f2 = formatDeparture(d2);
+      const live = isLive(d2);
       return b`<div class="row">
           ${this.badge(d2.line_number, tramLines)}
           <span class="dir">${d2.direction}</span>
-          <span class="when ${f2.live ? "live" : "sched"}">${f2.live ? b`<span class="dot"></span>` : A}${f2.text}</span>
+          <span class="when ${live ? "live" : "sched"}">${live ? b`<span class="dot"></span>` : A}${this.timeText(d2, now)}</span>
         </div>`;
     })}
     </div>`;
   }
-  renderCompact(deps, tramLines) {
+  renderCompact(deps, tramLines, now) {
     const [first, ...rest] = deps;
-    const f2 = formatDeparture(first);
+    const live = isLive(first);
     return b`<div class="compact">
       <div class="chead">${this.badge(first.line_number, tramLines)}<span class="dir">${first.direction}</span></div>
-      <div class="big ${f2.live ? "live" : "sched"}">${f2.live ? b`<span class="dot"></span>` : A}${f2.text}</div>
-      ${rest.length ? b`<div class="sub">potem: ${rest.map((d2) => b`<strong>${formatDeparture(d2).text}</strong>`)}</div>` : A}
+      <div class="big ${live ? "live" : "sched"}">${live ? b`<span class="dot"></span>` : A}${this.timeText(first, now)}</div>
+      ${rest.length ? b`<div class="sub">potem: ${rest.map((d2) => b`<strong>${this.timeText(d2, now)}</strong>`)}</div>` : A}
     </div>`;
   }
 };
@@ -813,6 +862,9 @@ __decorateClass$1([
 __decorateClass$1([
   r()
 ], ZditmDeparturesCard.prototype, "stale");
+__decorateClass$1([
+  r()
+], ZditmDeparturesCard.prototype, "phase");
 var __defProp = Object.defineProperty;
 var __decorateClass = (decorators, target, key, kind) => {
   var result = void 0;
@@ -951,4 +1003,4 @@ window.customCards.push({
   preview: true,
   documentationURL: "https://github.com/GreatAnubis/zditm-departures-card"
 });
-console.info("%c ZDITM-DEPARTURES-CARD %c 0.1.0 ", "background:#1565c0;color:#fff", "background:#333;color:#fff");
+console.info("%c ZDITM-DEPARTURES-CARD %c 0.1.1 ", "background:#1565c0;color:#fff", "background:#333;color:#fff");

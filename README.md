@@ -33,3 +33,7 @@ count: 3             # ile odjazdów (tryb list)
 | `refresh` | `30` | Sekundy między odświeżeniami (min 20) |
 | `show_header` | `true` | Pokaż nagłówek |
 | `tram_lines` | 1–12 | Nadpisanie klasyfikacji tramwaj/autobus |
+| `flip_clock_secs` | `10` | Ile sekund pokazywać godzinę przy przełączaniu |
+| `flip_rel_secs` | `5` | Ile sekund pokazywać „za X min" przy przełączaniu |
+
+Czas każdego odjazdu przełącza się automatycznie między godziną a „za ile minut".

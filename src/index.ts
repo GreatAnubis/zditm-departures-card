@@ -14,4 +14,4 @@ customElements.define('zditm-departures-card-editor', ZditmDeparturesCardEditor)
   documentationURL: 'https://github.com/GreatAnubis/zditm-departures-card',
 });
 
-console.info('%c ZDITM-DEPARTURES-CARD %c 0.1.0 ', 'background:#1565c0;color:#fff', 'background:#333;color:#fff');
+console.info('%c ZDITM-DEPARTURES-CARD %c 0.1.1 ', 'background:#1565c0;color:#fff', 'background:#333;color:#fff');

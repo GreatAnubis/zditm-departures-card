@@ -36,6 +36,8 @@ export interface CardConfig {
   refresh?: number;             // seconds; default 30, clamped to >= 20
   show_header?: boolean;        // default true
   tram_lines?: (string | number)[]; // override tram classification
+  flip_clock_secs?: number;     // seconds showing clock time (default 10)
+  flip_rel_secs?: number;       // seconds showing "za X min" (default 5)
 }
 
 // Defaults / constants
@@ -45,6 +47,8 @@ export const DEFAULTS = {
   refresh: 30,
   minRefresh: 20,
   show_header: true,
+  flipClockSecs: 10,
+  flipRelSecs: 5,
 };
 
 // Szczecin tram lines (verify during manual testing; overridable via config.tram_lines)

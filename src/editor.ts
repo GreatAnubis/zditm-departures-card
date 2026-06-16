@@ -92,6 +92,12 @@ export class ZditmDeparturesCardEditor extends LitElement {
         <label>Liczba odjazdów (tryb lista)</label>
         <input class="ctrl" type="number" min="1" .value=${String(this.config.count ?? 3)}
                @change=${(e: Event) => { const n = Number((e.target as HTMLInputElement).value); this.emit({ count: Number.isFinite(n) && n > 0 ? n : undefined }); }} />
+
+        <label>Odświeżanie</label>
+        <select class="ctrl" @change=${(e: Event) => this.emit({ refresh: Number((e.target as HTMLSelectElement).value) })}>
+          ${[{ v: 30, l: '30 s' }, { v: 60, l: '1 min' }, { v: 90, l: '90 s' }, { v: 120, l: '2 min' }, { v: 300, l: '5 min' }].map(o => html`
+            <option value=${o.v} ?selected=${(this.config.refresh ?? 30) === o.v}>${o.l}</option>`)}
+        </select>
       </div>`;
   }
 

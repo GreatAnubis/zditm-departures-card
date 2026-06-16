@@ -1,6 +1,6 @@
 {
   "name": "zditm-departures-card",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Home Assistant Lovelace card for ZDiTM Szczecin live departures",
   "type": "module",
   "scripts": {

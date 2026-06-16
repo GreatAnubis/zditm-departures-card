@@ -1004,6 +1004,12 @@ const _ZditmDeparturesCardEditor = class _ZditmDeparturesCardEditor extends i {
       const n3 = Number(e2.target.value);
       this.emit({ count: Number.isFinite(n3) && n3 > 0 ? n3 : void 0 });
     }} />
+
+        <label>Odświeżanie</label>
+        <select class="ctrl" @change=${(e2) => this.emit({ refresh: Number(e2.target.value) })}>
+          ${[{ v: 30, l: "30 s" }, { v: 60, l: "1 min" }, { v: 90, l: "90 s" }, { v: 120, l: "2 min" }, { v: 300, l: "5 min" }].map((o2) => b`
+            <option value=${o2.v} ?selected=${(this.config.refresh ?? 30) === o2.v}>${o2.l}</option>`)}
+        </select>
       </div>`;
   }
 };
@@ -1045,4 +1051,4 @@ window.customCards.push({
   preview: true,
   documentationURL: "https://github.com/GreatAnubis/zditm-departures-card"
 });
-console.info("%c ZDITM-DEPARTURES-CARD %c 0.1.3 ", "background:#1565c0;color:#fff", "background:#333;color:#fff");
+console.info("%c ZDITM-DEPARTURES-CARD %c 0.1.4 ", "background:#1565c0;color:#fff", "background:#333;color:#fff");

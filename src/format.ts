@@ -1,4 +1,4 @@
-import type { Departure } from './types';
+import type { Departure, CardMode } from './types';
 
 export type LineKind = 'tram' | 'bus';
 
@@ -32,4 +32,9 @@ export function formatDeparture(dep: Departure): FormattedTime {
   }
   if (dep.time_scheduled) return { live: false, text: dep.time_scheduled };
   return { live: false, text: '—' };
+}
+
+export function selectDepartures(departures: Departure[], mode: CardMode, count: number): Departure[] {
+  const limit = mode === 'compact' ? 3 : Math.max(1, count);
+  return departures.slice(0, limit);
 }

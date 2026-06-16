@@ -63,3 +63,21 @@ describe('formatDeparture', () => {
       .toEqual({ live: false, text: '—' });
   });
 });
+
+import { selectDepartures } from '../src/format';
+
+const many: Departure[] = Array.from({ length: 6 }, (_, i) => ({
+  line_number: '75', direction: 'X', time_real: i, time_scheduled: null,
+}));
+
+describe('selectDepartures', () => {
+  it('list mode takes first `count`', () => {
+    expect(selectDepartures(many, 'list', 3).length).toBe(3);
+  });
+  it('compact mode takes first 3 (big + 2)', () => {
+    expect(selectDepartures(many, 'compact', 99).length).toBe(3);
+  });
+  it('never returns more than available', () => {
+    expect(selectDepartures(many.slice(0, 2), 'list', 5).length).toBe(2);
+  });
+});

@@ -830,7 +830,7 @@ const _ZditmDeparturesCard = class _ZditmDeparturesCard extends i {
           ${this.stale ? b`<span class="stale" title="Dane nieaktualne">⚠ nieaktualne</span>` : A}
         </div>` : A}
         ${this.data.message ? b`<div class="banner">${this.data.message}</div>` : A}
-        ${shown.length === 0 ? b`<div class="msg">${cfg.lines?.length ? "Brak odjazdów dla wybranych linii" : "Brak odjazdów"}</div>` : mode === "compact" ? this.renderCompact(shown, tramLines, now) : this.renderList(shown, tramLines, now)}
+        ${shown.length === 0 ? b`<div class="msg">${cfg.lines?.length ? "Brak odjazdów wybranych linii w najbliższych godzinach" : "Brak odjazdów w najbliższych godzinach"}</div>` : mode === "compact" ? this.renderCompact(shown, tramLines, now) : this.renderList(shown, tramLines, now)}
       </ha-card>`;
   }
   badge(line, tramLines) {
@@ -1051,4 +1051,4 @@ window.customCards.push({
   preview: true,
   documentationURL: "https://github.com/GreatAnubis/zditm-departures-card"
 });
-console.info("%c ZDITM-DEPARTURES-CARD %c 0.1.4 ", "background:#1565c0;color:#fff", "background:#333;color:#fff");
+console.info("%c ZDITM-DEPARTURES-CARD %c 0.1.5 ", "background:#1565c0;color:#fff", "background:#333;color:#fff");

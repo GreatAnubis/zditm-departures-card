@@ -113,7 +113,7 @@ export class ZditmDeparturesCard extends LitElement {
         </div>` : nothing}
         ${this.data.message ? html`<div class="banner">${this.data.message}</div>` : nothing}
         ${shown.length === 0
-          ? html`<div class="msg">${(cfg.lines?.length) ? 'Brak odjazdów dla wybranych linii' : 'Brak odjazdów'}</div>`
+          ? html`<div class="msg">${(cfg.lines?.length) ? 'Brak odjazdów wybranych linii w najbliższych godzinach' : 'Brak odjazdów w najbliższych godzinach'}</div>`
           : (mode === 'compact' ? this.renderCompact(shown, tramLines, now) : this.renderList(shown, tramLines, now))}
       </ha-card>`;
   }

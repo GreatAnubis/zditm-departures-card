@@ -1,7 +1,22 @@
 # ZDiTM Departures Card
 
-Karta Lovelace dla Home Assistant pokazująca odjazdy autobusów i tramwajów
-ZDiTM Szczecin na żywo. Dane: [ZDiTM Szczecin API](https://www.zditm.szczecin.pl) (CC0).
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz)
+[![Release](https://img.shields.io/github/v/release/GreatAnubis/zditm-departures-card)](https://github.com/GreatAnubis/zditm-departures-card/releases)
+
+Karta Lovelace dla Home Assistant pokazująca **odjazdy autobusów i tramwajów ZDiTM Szczecin na żywo** —
+za ile minut następny i kilka kolejnych, z kolorami wg typu linii.
+Dane: [ZDiTM Szczecin API](https://www.zditm.szczecin.pl) (CC0).
+
+![Podgląd karty](images/screenshot.jpg)
+
+## Funkcje
+
+- ⏱️ Odjazdy na żywo (GPS): „za X min" / „teraz", z fallbackiem na rozkład
+- 🔄 Czas przełącza się automatycznie między godziną a „za ile minut"
+- 🟢 Kolory plakietek wg typu linii (tramwaj / autobus / pośpieszny / nocny / zastępczy)
+- 🔎 Wyszukiwarka przystanku w edytorze z podglądem kierunku na żywo
+- 🎛️ Filtr linii i kierunku, tryby `list` / `compact`, konfigurowalne odświeżanie
+- 🎨 Dopasowuje się do motywu Home Assistant
 
 ## Instalacja (HACS)
 
@@ -32,7 +47,7 @@ count: 3             # ile odjazdów (tryb list)
 | `count` | `3` | Liczba odjazdów (tryb list) |
 | `refresh` | `30` | Sekundy między odświeżeniami (min 20) |
 | `show_header` | `true` | Pokaż nagłówek |
-| `tram_lines` | 1–12 | Nadpisanie klasyfikacji tramwaj/autobus |
+| `tram_lines` | 1–11 | Nadpisanie klasyfikacji tramwaj/autobus |
 | `flip_clock_secs` | `10` | Ile sekund pokazywać godzinę przy przełączaniu |
 | `flip_rel_secs` | `5` | Ile sekund pokazywać „za X min" przy przełączaniu |
 

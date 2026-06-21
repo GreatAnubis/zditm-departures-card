@@ -1,9 +1,14 @@
 import { LitElement, html, css, nothing, type TemplateResult } from 'lit';
-import { state } from 'lit/decorators.js';
+import { property, state } from 'lit/decorators.js';
 import type { CardConfig, Stop, DisplayResponse } from './types';
 import { zditmApi } from './zditm-api';
 
+interface HassLike {
+  states?: Record<string, { state?: string; attributes?: Record<string, any> }>;
+}
+
 export class ZditmDeparturesCardEditor extends LitElement {
+  @property({ attribute: false }) public hass?: HassLike;
   @state() private config!: CardConfig;
   @state() private query = '';
   @state() private results: Stop[] = [];
@@ -27,7 +32,7 @@ export class ZditmDeparturesCardEditor extends LitElement {
   }
 
   private async pickStop(stop: Stop): Promise<void> {
-    this.emit({ stop: stop.number, title: undefined });
+    this.emit({ stop: stop.number, entity: undefined, title: undefined });
     this.results = [];
     this.query = stop.name;
     await this.loadPreview(stop.number);
@@ -36,6 +41,34 @@ export class ZditmDeparturesCardEditor extends LitElement {
   private async loadPreview(stop: string): Promise<void> {
     try { this.preview = await zditmApi.fetchDisplay(stop); }
     catch { this.preview = undefined; }
+  }
+
+  // ZDiTM integration "next departure" stop sensors carry a `departures` attribute.
+  private integrationSensors(): { id: string; name: string }[] {
+    const states = this.hass?.states ?? {};
+    return Object.keys(states)
+      .filter((id) => id.startsWith('sensor.') && Array.isArray(states[id].attributes?.departures))
+      .map((id) => ({
+        id,
+        name: states[id].attributes?.friendly_name ?? states[id].attributes?.stop_name ?? id,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  private entityDirections(entityId: string): string[] {
+    const deps = this.hass?.states?.[entityId]?.attributes?.departures;
+    if (!Array.isArray(deps)) return [];
+    return [...new Set(deps.map((d: any) => `${d.line} → ${d.direction}`))].slice(0, 5);
+  }
+
+  private onSource(e: Event): void {
+    const source = (e.target as HTMLSelectElement).value;
+    if (source === 'entity') {
+      const first = this.integrationSensors()[0]?.id;
+      this.emit({ stop: undefined, entity: first });
+    } else {
+      this.emit({ entity: undefined });
+    }
   }
 
   private linesValue(): string {
@@ -54,23 +87,44 @@ export class ZditmDeparturesCardEditor extends LitElement {
 
   render(): TemplateResult {
     if (!this.config) return html``;
-    const directions = this.preview
-      ? [...new Set(this.preview.departures.map(d => `${d.line_number} → ${d.direction}`))].slice(0, 5)
-      : [];
+    const source: 'stop' | 'entity' = this.config.entity ? 'entity' : 'stop';
+    const sensors = this.integrationSensors();
+    const directions = source === 'entity'
+      ? (this.config.entity ? this.entityDirections(this.config.entity) : [])
+      : (this.preview
+          ? [...new Set(this.preview.departures.map(d => `${d.line_number} → ${d.direction}`))].slice(0, 5)
+          : []);
+
     return html`
       <div class="form">
-        <label>Przystanek *</label>
-        <input class="ctrl" .value=${this.query} placeholder="Szukaj po nazwie…"
-               @input=${(e: Event) => void this.onSearch(e)} />
-        ${this.results.length ? html`<div class="results">
-          ${this.results.map(s => html`
-            <div class="res" @click=${() => void this.pickStop(s)}>
-              <span class="nr">${s.number}</span>${s.name}
-            </div>`)}
-        </div>` : nothing}
+        <label>Źródło danych</label>
+        <select class="ctrl" @change=${(e: Event) => this.onSource(e)}>
+          <option value="stop" ?selected=${source === 'stop'}>API ZDiTM (numer przystanku)</option>
+          <option value="entity" ?selected=${source === 'entity'}>Integracja Home Assistant (encja)</option>
+        </select>
 
-        ${this.config.stop ? html`<div class="preview">
-          <div class="ptitle">Słupek ${this.config.stop} obsługuje:</div>
+        ${source === 'entity' ? html`
+          <label>Encja przystanku *</label>
+          ${sensors.length ? html`
+            <select class="ctrl" @change=${(e: Event) => this.emit({ entity: (e.target as HTMLSelectElement).value })}>
+              ${sensors.map(s => html`
+                <option value=${s.id} ?selected=${this.config.entity === s.id}>${s.name}</option>`)}
+            </select>` : html`
+            <div class="pl muted">Brak encji integracji ZDiTM. Zainstaluj integrację hass-zditm-szczecin i dodaj przystanek.</div>`}
+        ` : html`
+          <label>Przystanek *</label>
+          <input class="ctrl" .value=${this.query} placeholder="Szukaj po nazwie…"
+                 @input=${(e: Event) => void this.onSearch(e)} />
+          ${this.results.length ? html`<div class="results">
+            ${this.results.map(s => html`
+              <div class="res" @click=${() => void this.pickStop(s)}>
+                <span class="nr">${s.number}</span>${s.name}
+              </div>`)}
+          </div>` : nothing}
+        `}
+
+        ${(this.config.stop || this.config.entity) ? html`<div class="preview">
+          <div class="ptitle">${source === 'entity' ? 'Encja obsługuje:' : `Słupek ${this.config.stop} obsługuje:`}</div>
           ${directions.length ? directions.map(d => html`<div class="pl">${d}</div>`)
                               : html`<div class="pl muted">brak danych podglądu</div>`}
         </div>` : nothing}
@@ -93,11 +147,12 @@ export class ZditmDeparturesCardEditor extends LitElement {
         <input class="ctrl" type="number" min="1" .value=${String(this.config.count ?? 3)}
                @change=${(e: Event) => { const n = Number((e.target as HTMLInputElement).value); this.emit({ count: Number.isFinite(n) && n > 0 ? n : undefined }); }} />
 
-        <label>Odświeżanie</label>
-        <select class="ctrl" @change=${(e: Event) => this.emit({ refresh: Number((e.target as HTMLSelectElement).value) })}>
-          ${[{ v: 30, l: '30 s' }, { v: 60, l: '1 min' }, { v: 90, l: '90 s' }, { v: 120, l: '2 min' }, { v: 300, l: '5 min' }].map(o => html`
-            <option value=${o.v} ?selected=${(this.config.refresh ?? 30) === o.v}>${o.l}</option>`)}
-        </select>
+        ${source === 'stop' ? html`
+          <label>Odświeżanie</label>
+          <select class="ctrl" @change=${(e: Event) => this.emit({ refresh: Number((e.target as HTMLSelectElement).value) })}>
+            ${[{ v: 30, l: '30 s' }, { v: 60, l: '1 min' }, { v: 90, l: '90 s' }, { v: 120, l: '2 min' }, { v: 300, l: '5 min' }].map(o => html`
+              <option value=${o.v} ?selected=${(this.config.refresh ?? 30) === o.v}>${o.l}</option>`)}
+          </select>` : nothing}
       </div>`;
   }
 

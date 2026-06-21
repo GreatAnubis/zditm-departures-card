@@ -659,6 +659,25 @@ class ZditmApi {
   }
 }
 const zditmApi = new ZditmApi();
+function displayFromEntity(stateObj) {
+  if (!stateObj || !stateObj.attributes) return void 0;
+  const a2 = stateObj.attributes;
+  const raw = Array.isArray(a2.departures) ? a2.departures : [];
+  const departures = raw.map((d2) => ({
+    line_number: String(d2.line ?? d2.line_number ?? ""),
+    direction: String(d2.direction ?? ""),
+    time_real: d2.time_real ?? null,
+    time_scheduled: d2.time_scheduled ?? null,
+    category: d2.category
+  }));
+  return {
+    stop_name: a2.stop_name ?? a2.friendly_name ?? "",
+    stop_number: String(a2.stop_number ?? ""),
+    departures,
+    message: a2.message ?? null,
+    updated_at: a2.updated_at ?? ""
+  };
+}
 function categorize(lineNumber, info, tramLines) {
   if (info) {
     if (info.vehicle_type === "tram") return "tram";
@@ -738,7 +757,9 @@ const _ZditmDeparturesCard = class _ZditmDeparturesCard extends i {
     return { stop: "", mode: "list", count: 3 };
   }
   setConfig(config) {
-    if (!config.stop) throw new Error("Podaj numer przystanku (stop).");
+    if (!config.stop && !config.entity) {
+      throw new Error("Podaj numer przystanku (stop) lub encję integracji (entity).");
+    }
     this.config = config;
     this.restart();
   }
@@ -755,12 +776,37 @@ const _ZditmDeparturesCard = class _ZditmDeparturesCard extends i {
   }
   restart() {
     this.stop();
-    if (!this.config?.stop) return;
+    if (!this.config) return;
+    if (this.config.entity) {
+      this.readEntity();
+      this.startFlip();
+      return;
+    }
+    if (!this.config.stop) return;
     void this.loadLines();
     const seconds = Math.max(DEFAULTS.minRefresh, this.config.refresh ?? DEFAULTS.refresh);
     void this.poll();
     this.timer = window.setInterval(() => void this.poll(), seconds * 1e3);
     this.startFlip();
+  }
+  // Re-read the entity whenever Home Assistant pushes new state (entity mode only).
+  willUpdate(changed) {
+    if (this.config?.entity && changed.has("hass")) this.readEntity();
+  }
+  readEntity() {
+    const entityId = this.config.entity;
+    if (!entityId) return;
+    const st = this.hass?.states?.[entityId];
+    if (!st) {
+      this.error = `Brak encji: ${entityId}`;
+      return;
+    }
+    const data = displayFromEntity(st);
+    if (data) {
+      this.data = data;
+      this.error = void 0;
+      this.stale = false;
+    }
   }
   stop() {
     if (this.timer) {
@@ -833,8 +879,8 @@ const _ZditmDeparturesCard = class _ZditmDeparturesCard extends i {
         ${shown.length === 0 ? b`<div class="msg">${cfg.lines?.length ? "Brak odjazdów wybranych linii w najbliższych godzinach" : "Brak odjazdów w najbliższych godzinach"}</div>` : mode === "compact" ? this.renderCompact(shown, tramLines, now) : this.renderList(shown, tramLines, now)}
       </ha-card>`;
   }
-  badge(line, tramLines) {
-    const cat = categorize(line, this.lineIndex?.get(String(line)), tramLines);
+  badge(line, tramLines, category) {
+    const cat = category ?? categorize(line, this.lineIndex?.get(String(line)), tramLines);
     return b`<span class="badge ${cat}">${line}</span>`;
   }
   renderList(deps, tramLines, now) {
@@ -842,7 +888,7 @@ const _ZditmDeparturesCard = class _ZditmDeparturesCard extends i {
       ${deps.map((d2) => {
       const live = isLive(d2);
       return b`<div class="row">
-          ${this.badge(d2.line_number, tramLines)}
+          ${this.badge(d2.line_number, tramLines, d2.category)}
           <span class="dir">${d2.direction}</span>
           <span class="when ${live ? "live" : "sched"}">${live ? b`<span class="dot"></span>` : A}${this.timeText(d2, now)}</span>
         </div>`;
@@ -853,7 +899,7 @@ const _ZditmDeparturesCard = class _ZditmDeparturesCard extends i {
     const [first, ...rest] = deps;
     const live = isLive(first);
     return b`<div class="compact">
-      <div class="chead">${this.badge(first.line_number, tramLines)}<span class="dir">${first.direction}</span></div>
+      <div class="chead">${this.badge(first.line_number, tramLines, first.category)}<span class="dir">${first.direction}</span></div>
       <div class="big ${live ? "live" : "sched"}">${live ? b`<span class="dot"></span>` : A}${this.timeText(first, now)}</div>
       ${rest.length ? b`<div class="sub">potem: ${rest.map((d2) => b`<strong>${this.timeText(d2, now)}</strong>`)}</div>` : A}
     </div>`;

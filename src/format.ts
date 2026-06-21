@@ -1,6 +1,32 @@
-import type { Departure, CardMode, LineInfo, LineCategory } from './types';
+import type { Departure, CardMode, LineInfo, LineCategory, DisplayResponse } from './types';
 
 export type LineKind = 'tram' | 'bus';
+
+// Build a DisplayResponse from a Home Assistant sensor state (the integration's
+// "next departure" stop sensor). Maps the entity's `departures` attribute
+// (keys: line, direction, time_real, time_scheduled, category) onto the card's
+// Departure shape. Returns undefined when the entity/attributes are absent.
+export function displayFromEntity(
+  stateObj: { state?: string; attributes?: Record<string, any> } | undefined,
+): DisplayResponse | undefined {
+  if (!stateObj || !stateObj.attributes) return undefined;
+  const a = stateObj.attributes;
+  const raw = Array.isArray(a.departures) ? a.departures : [];
+  const departures: Departure[] = raw.map((d: any) => ({
+    line_number: String(d.line ?? d.line_number ?? ''),
+    direction: String(d.direction ?? ''),
+    time_real: d.time_real ?? null,
+    time_scheduled: d.time_scheduled ?? null,
+    category: d.category as LineCategory | undefined,
+  }));
+  return {
+    stop_name: a.stop_name ?? a.friendly_name ?? '',
+    stop_number: String(a.stop_number ?? ''),
+    departures,
+    message: a.message ?? null,
+    updated_at: a.updated_at ?? '',
+  };
+}
 
 export function classifyLine(line: string, tramLines: string[]): LineKind {
   return tramLines.map(String).includes(String(line)) ? 'tram' : 'bus';

@@ -4,6 +4,7 @@ export interface Departure {
   direction: string;
   time_real: number | null;   // minutes until departure (live); 0 = now
   time_scheduled: string | null; // "hh:mm" from timetable
+  category?: LineCategory;    // optional: authoritative category from the HA integration entity
 }
 
 export interface DisplayResponse {
@@ -36,7 +37,8 @@ export type CardMode = 'list' | 'compact';
 
 export interface CardConfig {
   type: string;
-  stop: string;                 // required: stop (post) number
+  stop?: string;                // stop (post) number — used when reading directly from the API
+  entity?: string;              // HA sensor entity_id — used when reading from the integration
   title?: string;               // overrides stop_name from API
   lines?: (string | number)[];  // line filter; empty/absent = all
   directions?: string[];        // direction substring filter

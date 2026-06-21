@@ -16,6 +16,7 @@ Dane: [ZDiTM Szczecin API](https://www.zditm.szczecin.pl) (CC0).
 - 🟢 Kolory plakietek wg typu linii (tramwaj / autobus / pośpieszny / nocny / zastępczy)
 - 🔎 Wyszukiwarka przystanku w edytorze z podglądem kierunku na żywo
 - 🎛️ Filtr linii i kierunku, tryby `list` / `compact`, konfigurowalne odświeżanie
+- 🔌 Tryb integracji HA: czyta z encji [hass-zditm-szczecin](https://github.com/GreatAnubis/hass-zditm-szczecin) (`entity:`) — jedno źródło danych
 - 🎨 Dopasowuje się do motywu Home Assistant
 
 ## Instalacja (HACS)
@@ -37,15 +38,30 @@ mode: list           # list | compact
 count: 3             # ile odjazdów (tryb list)
 ```
 
+### Tryb integracji Home Assistant (encje)
+
+Jeśli masz zainstalowaną integrację [hass-zditm-szczecin](https://github.com/GreatAnubis/hass-zditm-szczecin),
+karta może czytać dane z encji sensora „następny odjazd" zamiast odpytywać API bezpośrednio
+(jedno źródło danych, mniej zapytań). Podaj `entity` zamiast `stop` — cała reszta funkcji
+(`mode`, `count`, `lines`, `directions`, przełączanie czasu, kolory) działa tak samo:
+
+```yaml
+type: custom:zditm-departures-card
+entity: sensor.brama_portowa_nastepny_odjazd
+mode: list
+count: 3             # 1, 2, 3 … lub duża wartość, aby pokazać wszystkie
+```
+
 | Pole | Domyślnie | Opis |
 |------|-----------|------|
-| `stop` | — (wymagane) | Numer słupka |
+| `stop` | — (wymagane, jeśli brak `entity`) | Numer słupka (tryb API) |
+| `entity` | — (wymagane, jeśli brak `stop`) | Encja sensora integracji (tryb HA) |
 | `title` | nazwa z API | Nagłówek karty |
 | `lines` | wszystkie | Filtr linii |
 | `directions` | wszystkie | Filtr kierunku (fragment nazwy) |
 | `mode` | `list` | `list` lub `compact` |
 | `count` | `3` | Liczba odjazdów (tryb list) |
-| `refresh` | `30` | Sekundy między odświeżeniami (min 20) |
+| `refresh` | `30` | Sekundy między odświeżeniami (min 20; tylko tryb `stop`) |
 | `show_header` | `true` | Pokaż nagłówek |
 | `tram_lines` | 1–11 | Nadpisanie klasyfikacji tramwaj/autobus |
 | `flip_clock_secs` | `10` | Ile sekund pokazywać godzinę przy przełączaniu |

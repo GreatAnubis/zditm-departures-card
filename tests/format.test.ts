@@ -143,3 +143,42 @@ describe('categorize (fallback, no API info)', () => {
   it('8xx to replacement', () => { expect(categorize('811', undefined, TRAMS)).toBe('replacement'); });
   it('plain number to bus', () => { expect(categorize('75', undefined, TRAMS)).toBe('bus'); });
 });
+
+import { displayFromEntity } from '../src/format';
+
+describe('displayFromEntity', () => {
+  const stateObj = {
+    state: '5',
+    attributes: {
+      stop_name: 'Brama Portowa',
+      stop_number: '11111',
+      message: 'Uwaga: objazd',
+      updated_at: '2026-06-17T10:00:00+02:00',
+      departures: [
+        { line: '3', direction: 'Pomorzany', time_real: 5, time_scheduled: null, category: 'tram' },
+        { line: '521', direction: 'Police', time_real: null, time_scheduled: '23:58', category: 'night' },
+      ],
+    },
+  };
+
+  it('maps the integration sensor attributes onto a DisplayResponse', () => {
+    const d = displayFromEntity(stateObj)!;
+    expect(d.stop_name).toBe('Brama Portowa');
+    expect(d.stop_number).toBe('11111');
+    expect(d.message).toBe('Uwaga: objazd');
+    expect(d.departures).toHaveLength(2);
+    expect(d.departures[0]).toEqual({ line_number: '3', direction: 'Pomorzany', time_real: 5, time_scheduled: null, category: 'tram' });
+    expect(d.departures[1].line_number).toBe('521');
+    expect(d.departures[1].category).toBe('night');
+    expect(d.departures[1].time_scheduled).toBe('23:58');
+  });
+
+  it('handles empty / missing departures', () => {
+    expect(displayFromEntity({ state: 'unknown', attributes: { stop_name: 'X' } })!.departures).toEqual([]);
+  });
+
+  it('returns undefined when the entity/attributes are absent', () => {
+    expect(displayFromEntity(undefined)).toBeUndefined();
+    expect(displayFromEntity({ state: '5' })).toBeUndefined();
+  });
+});

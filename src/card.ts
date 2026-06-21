@@ -1,9 +1,9 @@
-import { LitElement, html, css, nothing, type TemplateResult } from 'lit';
+import { LitElement, html, css, nothing, type TemplateResult, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import type { CardConfig, DisplayResponse, Departure, LineInfo } from './types';
+import type { CardConfig, DisplayResponse, Departure, LineInfo, LineCategory } from './types';
 import { DEFAULTS, DEFAULT_TRAM_LINES } from './types';
 import { zditmApi } from './zditm-api';
-import { filterDepartures, selectDepartures, isLive, departureClock, departureRelative, categorize } from './format';
+import { filterDepartures, selectDepartures, isLive, departureClock, departureRelative, categorize, displayFromEntity } from './format';
 
 export class ZditmDeparturesCard extends LitElement {
   @property({ attribute: false }) public hass?: unknown;
@@ -24,7 +24,9 @@ export class ZditmDeparturesCard extends LitElement {
   }
 
   public setConfig(config: CardConfig): void {
-    if (!config.stop) throw new Error('Podaj numer przystanku (stop).');
+    if (!config.stop && !config.entity) {
+      throw new Error('Podaj numer przystanku (stop) lub encję integracji (entity).');
+    }
     this.config = config;
     this.restart();
   }
@@ -38,12 +40,33 @@ export class ZditmDeparturesCard extends LitElement {
 
   private restart(): void {
     this.stop();
-    if (!this.config?.stop) return;
+    if (!this.config) return;
+    // Entity mode: read from the HA integration sensor, no API polling.
+    if (this.config.entity) {
+      this.readEntity();
+      this.startFlip();
+      return;
+    }
+    if (!this.config.stop) return;
     void this.loadLines();
     const seconds = Math.max(DEFAULTS.minRefresh, this.config.refresh ?? DEFAULTS.refresh);
     void this.poll();
     this.timer = window.setInterval(() => void this.poll(), seconds * 1000);
     this.startFlip();
+  }
+
+  // Re-read the entity whenever Home Assistant pushes new state (entity mode only).
+  protected willUpdate(changed: PropertyValues): void {
+    if (this.config?.entity && changed.has('hass')) this.readEntity();
+  }
+
+  private readEntity(): void {
+    const entityId = this.config.entity;
+    if (!entityId) return;
+    const st = (this.hass as { states?: Record<string, { state?: string; attributes?: Record<string, unknown> }> } | undefined)?.states?.[entityId];
+    if (!st) { this.error = `Brak encji: ${entityId}`; return; }
+    const data = displayFromEntity(st);
+    if (data) { this.data = data; this.error = undefined; this.stale = false; }
   }
   private stop(): void {
     if (this.timer) { clearInterval(this.timer); this.timer = undefined; }
@@ -118,8 +141,8 @@ export class ZditmDeparturesCard extends LitElement {
       </ha-card>`;
   }
 
-  private badge(line: string, tramLines: string[]): TemplateResult {
-    const cat = categorize(line, this.lineIndex?.get(String(line)), tramLines);
+  private badge(line: string, tramLines: string[], category?: LineCategory): TemplateResult {
+    const cat = category ?? categorize(line, this.lineIndex?.get(String(line)), tramLines);
     return html`<span class="badge ${cat}">${line}</span>`;
   }
 
@@ -128,7 +151,7 @@ export class ZditmDeparturesCard extends LitElement {
       ${deps.map(d => {
         const live = isLive(d);
         return html`<div class="row">
-          ${this.badge(d.line_number, tramLines)}
+          ${this.badge(d.line_number, tramLines, d.category)}
           <span class="dir">${d.direction}</span>
           <span class="when ${live ? 'live' : 'sched'}">${live ? html`<span class="dot"></span>` : nothing}${this.timeText(d, now)}</span>
         </div>`;
@@ -140,7 +163,7 @@ export class ZditmDeparturesCard extends LitElement {
     const [first, ...rest] = deps;
     const live = isLive(first);
     return html`<div class="compact">
-      <div class="chead">${this.badge(first.line_number, tramLines)}<span class="dir">${first.direction}</span></div>
+      <div class="chead">${this.badge(first.line_number, tramLines, first.category)}<span class="dir">${first.direction}</span></div>
       <div class="big ${live ? 'live' : 'sched'}">${live ? html`<span class="dot"></span>` : nothing}${this.timeText(first, now)}</div>
       ${rest.length ? html`<div class="sub">potem: ${rest.map(d => html`<strong>${this.timeText(d, now)}</strong>`)}</div>` : nothing}
     </div>`;

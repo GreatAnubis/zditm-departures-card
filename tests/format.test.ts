@@ -181,4 +181,14 @@ describe('displayFromEntity', () => {
     expect(displayFromEntity(undefined)).toBeUndefined();
     expect(displayFromEntity({ state: '5' })).toBeUndefined();
   });
+
+  it('falls back to minutes for live departures when time_real is absent (older integration)', () => {
+    const d = displayFromEntity({ attributes: { departures: [
+      { line: '57', direction: 'Kołłątaja', is_live: true, minutes: 2, time_scheduled: null, category: 'bus' },
+      { line: '57', direction: 'Kołłątaja', is_live: false, minutes: 14, time_scheduled: '20:50', category: 'bus' },
+    ] } })!;
+    expect(d.departures[0].time_real).toBe(2);      // live → minutes used as time_real
+    expect(d.departures[1].time_real).toBeNull();   // scheduled → stays null, uses time_scheduled
+    expect(d.departures[1].time_scheduled).toBe('20:50');
+  });
 });

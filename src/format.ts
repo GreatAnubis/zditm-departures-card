@@ -15,7 +15,9 @@ export function displayFromEntity(
   const departures: Departure[] = raw.map((d: any) => ({
     line_number: String(d.line ?? d.line_number ?? ''),
     direction: String(d.direction ?? ''),
-    time_real: d.time_real ?? null,
+    // Prefer raw time_real; for older integration data that omits it, fall back to
+    // the computed `minutes` for live departures (scheduled ones use time_scheduled).
+    time_real: d.time_real ?? (d.is_live ? (d.minutes ?? null) : null),
     time_scheduled: d.time_scheduled ?? null,
     category: d.category as LineCategory | undefined,
   }));

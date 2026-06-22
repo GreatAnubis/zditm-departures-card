@@ -121,6 +121,9 @@ export class ZditmDeparturesCardEditor extends LitElement {
                 <span class="nr">${s.number}</span>${s.name}
               </div>`)}
           </div>` : nothing}
+          <div class="hint">Nie znajdujesz? W Szczecinie przystanki przy danej ulicy bywają nazwane od placów,
+            a ta sama nazwa (np. „Wojska Polskiego”) jest też w Policach/Tanowie. Numer słupka znajdziesz na
+            <a href="https://www.zditm.szczecin.pl/pl/pasazer/rozklady-jazdy/mapa-przystankow-i-pojazdow" target="_blank" rel="noopener noreferrer">mapie przystanków ZDiTM</a>.</div>
         `}
 
         ${(this.config.stop || this.config.entity) ? html`<div class="preview">
@@ -170,5 +173,7 @@ export class ZditmDeparturesCardEditor extends LitElement {
     .ptitle { font-size:.72rem; text-transform:uppercase; color: var(--secondary-text-color); margin-bottom:4px; }
     .pl { font-size:.85rem; padding:2px 0; }
     .pl.muted { color: var(--secondary-text-color); }
+    .hint { margin-top:6px; font-size:.78rem; color: var(--secondary-text-color); line-height:1.35; }
+    .hint a { color: var(--primary-color); text-decoration: underline; }
   `;
 }

@@ -15,6 +15,7 @@ Dane: [ZDiTM Szczecin API](https://www.zditm.szczecin.pl) (CC0).
 - 🔄 Czas przełącza się automatycznie między godziną a „za ile minut"
 - 🟢 Kolory plakietek wg typu linii (tramwaj / autobus / pośpieszny / nocny / zastępczy)
 - 🔎 Wyszukiwarka przystanku w edytorze z podglądem kierunku na żywo
+- 🗺️ Wybór przystanku na interaktywnej mapie (edytor karty)
 - 🎛️ Filtr linii i kierunku, tryby `list` / `compact`, konfigurowalne odświeżanie
 - 🔌 Tryb integracji HA: czyta z encji [hass-zditm-szczecin](https://github.com/GreatAnubis/hass-zditm-szczecin) (`entity:`) — jedno źródło danych
 - 🎨 Dopasowuje się do motywu Home Assistant

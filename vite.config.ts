@@ -24,7 +24,7 @@ export default defineConfig({
       formats: ['es'],
       fileName: () => 'zditm-departures-card.js',
     },
-    rollupOptions: { output: { dir: 'dist' } },
+    rollupOptions: { output: { dir: 'dist', inlineDynamicImports: true } },
     target: 'es2021',
     minify: 'terser',
   },

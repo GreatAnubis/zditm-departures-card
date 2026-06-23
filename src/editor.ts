@@ -1,7 +1,10 @@
 import { LitElement, html, css, nothing, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
+import { ref, createRef, type Ref } from 'lit/directives/ref.js';
 import type { CardConfig, Stop, DisplayResponse } from './types';
 import { zditmApi } from './zditm-api';
+import { loadMapResources } from './stop-map-data';
+import type { StopMapHandle } from './stop-map';
 
 interface HassLike {
   states?: Record<string, { state?: string; attributes?: Record<string, any> }>;
@@ -13,6 +16,19 @@ export class ZditmDeparturesCardEditor extends LitElement {
   @state() private query = '';
   @state() private results: Stop[] = [];
   @state() private preview?: DisplayResponse;
+  @state() private mapOpen = false;
+  @state() private mapLoading = false;
+  @state() private mapError?: string;
+  private mapContainerRef: Ref<HTMLDivElement> = createRef();
+  private mapHandle?: StopMapHandle;
+  private mapStops: Stop[] = [];
+  private mountMap?: (
+    container: HTMLElement, stops: Stop[], opts: {
+      selectedNumber?: string;
+      onPick: (p: { number: string; name: string }) => void;
+      loadDirections?: (n: string) => Promise<string[]>;
+    },
+  ) => StopMapHandle;
 
   public setConfig(config: CardConfig): void {
     this.config = { ...config };
@@ -41,6 +57,65 @@ export class ZditmDeparturesCardEditor extends LitElement {
   private async loadPreview(stop: string): Promise<void> {
     try { this.preview = await zditmApi.fetchDisplay(stop); }
     catch { this.preview = undefined; }
+  }
+
+  private async toggleMap(): Promise<void> {
+    if (this.mapOpen) { this.closeMap(); return; }
+    this.mapError = undefined;
+    this.mapLoading = true;
+    try {
+      const { mod, stops } = await loadMapResources(
+        () => import('./stop-map'),
+        () => zditmApi.fetchStops(),
+      );
+      this.mountMap = mod.mountStopMap;
+      this.mapStops = stops;
+      this.mapOpen = true;
+    } catch {
+      this.mapError = 'Nie udało się załadować mapy przystanków';
+    } finally {
+      this.mapLoading = false;
+    }
+  }
+
+  private closeMap(): void {
+    this.mapHandle?.destroy();
+    this.mapHandle = undefined;
+    this.mapOpen = false;
+  }
+
+  private selectStopFromMap(picked: { number: string; name: string }): void {
+    this.emit({ stop: picked.number, entity: undefined, title: undefined });
+    this.results = [];
+    this.query = picked.name;
+    this.mapHandle?.setSelected(picked.number);
+    void this.loadPreview(picked.number);
+  }
+
+  private async loadStopDirections(stop: string): Promise<string[]> {
+    try {
+      const display = await zditmApi.fetchDisplay(stop);
+      return [...new Set(display.departures.map(d => `${d.line_number} → ${d.direction}`))].slice(0, 5);
+    } catch {
+      return [];
+    }
+  }
+
+  protected updated(): void {
+    const el = this.mapContainerRef.value;
+    if (this.mapOpen && el && !this.mapHandle && this.mountMap) {
+      this.mapHandle = this.mountMap(el, this.mapStops, {
+        selectedNumber: this.config.stop,
+        onPick: (p) => this.selectStopFromMap(p),
+        loadDirections: (n) => this.loadStopDirections(n),
+      });
+    }
+  }
+
+  public disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this.mapHandle?.destroy();
+    this.mapHandle = undefined;
   }
 
   // ZDiTM integration "next departure" stop sensors carry a `departures` attribute.
@@ -121,9 +196,15 @@ export class ZditmDeparturesCardEditor extends LitElement {
                 <span class="nr">${s.number}</span>${s.name}
               </div>`)}
           </div>` : nothing}
-          <div class="hint">Nie znajdujesz? W Szczecinie przystanki przy danej ulicy bywają nazwane od placów,
+          <div class=”hint”>Nie znajdujesz? W Szczecinie przystanki przy danej ulicy bywają nazwane od placów,
             a ta sama nazwa (np. „Wojska Polskiego”) jest też w Policach/Tanowie. Numer słupka znajdziesz na
-            <a href="https://www.zditm.szczecin.pl/pl/pasazer/rozklady-jazdy/mapa-przystankow-i-pojazdow" target="_blank" rel="noopener noreferrer">mapie przystanków ZDiTM</a>.</div>
+            <a href=”https://www.zditm.szczecin.pl/pl/pasazer/rozklady-jazdy/mapa-przystankow-i-pojazdow” target=”_blank” rel=”noopener noreferrer”>mapie przystanków ZDiTM</a>.</div>
+          <button type=”button” class=”ctrl mapbtn” @click=${() => void this.toggleMap()}>
+            🗺️ ${this.mapOpen ? 'Ukryj mapę' : 'Wybierz na mapie'}
+          </button>
+          ${this.mapLoading ? html`<div class=”pl muted”>Ładuję mapę…</div>` : nothing}
+          ${this.mapError ? html`<div class=”pl muted”>${this.mapError}</div>` : nothing}
+          ${this.mapOpen ? html`<div class=”mapwrap” ${ref(this.mapContainerRef)}></div>` : nothing}
         `}
 
         ${(this.config.stop || this.config.entity) ? html`<div class="preview">
@@ -175,5 +256,14 @@ export class ZditmDeparturesCardEditor extends LitElement {
     .pl.muted { color: var(--secondary-text-color); }
     .hint { margin-top:6px; font-size:.78rem; color: var(--secondary-text-color); line-height:1.35; }
     .hint a { color: var(--primary-color); text-decoration: underline; }
+    .mapbtn { margin-top:8px; cursor:pointer; text-align:left; }
+    .mapwrap { margin-top:8px; height:320px; border-radius:6px; overflow:hidden;
+               border:1px solid var(--divider-color); }
+    .zditm-stop-popup .zsp-title { font-weight:600; }
+    .zditm-stop-popup .zsp-sub { font-size:.78rem; color:#555; margin:2px 0 6px; }
+    .zditm-stop-popup .zsp-dir { font-size:.82rem; padding:1px 0; }
+    .zditm-stop-popup .zsp-btn { margin-top:6px; padding:6px 10px; border-radius:6px;
+               border:1px solid var(--primary-color); background:var(--primary-color);
+               color:#fff; cursor:pointer; }
   `;
 }

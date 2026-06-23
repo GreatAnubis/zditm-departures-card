@@ -35,7 +35,7 @@ export function mountStopMap(container: HTMLElement, stops: Stop[], opts: StopMa
 
   const map = L.map(container).setView(view.center, view.zoom);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap', maxZoom: 19,
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', maxZoom: 19,
   }).addTo(map);
 
   const renderer = L.canvas();

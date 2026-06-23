@@ -76,4 +76,13 @@ describe('editor map integration', () => {
     const dirs = await (el as any).loadStopDirections('10001');
     expect(dirs).toContain('3 → Pomorzany');
   });
+
+  it('renders the map button (stop source) and the map container after opening', async () => {
+    const el = makeEditor();           // baseConfig has stop:'10001' => source 'stop'
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.mapbtn')).toBeTruthy();
+    await (el as any).toggleMap();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.mapwrap')).toBeTruthy();
+  });
 });
